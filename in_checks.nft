@@ -1,0 +1,33 @@
+table ip filter {
+	chain bad_tcp {
+		limit rate 100/minute burst 150 packets \
+			log flags all prefix "$log_prefix Bad TCP flags: " \
+      drop
+  }
+	chain INPUT {
+		type filter hook input priority filter; policy $filter_in_policy;
+		meta nftrace set $nft_trace
+
+		ct state established,related accept
+
+		tcp flags != syn ct state new \
+			counter jump bad_tcp \
+			comment "Drop new connections that do not have the SYN TCP flag set"
+		tcp flags & (fin|syn) == (fin|syn) \
+			counter jump bad_tcp \
+			comment "Drop TCP packets with invalid fin/syn flag set"
+		tcp flags & (syn|rst) == (syn|rst) \
+			counter jump bad_tcp \
+			comment "Drop TCP packets with invalid syn/rst flag set"
+		tcp flags & (fin|syn|rst|psh|ack|urg) < (fin) \
+			counter jump bad_tcp \
+			comment "Drop TCP packets with flags (fin|syn|rst|psh|ack|urg) < (fin)"
+		tcp flags & (fin|syn|rst|psh|ack|urg) == (fin|psh|urg) \
+			counter jump bad_tcp \
+			comment "Drop TCP packets with flags (fin|syn|rst|psh|ack|urg) == (fin|psh|urg)"
+		ct state invalid \
+			counter jump bad_tcp \
+			comment "Drop traffic with invalid connection state"
+	}
+}
+

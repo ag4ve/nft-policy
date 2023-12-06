@@ -1,0 +1,14 @@
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+# table ip filter
+# delete table ip filter
+
+include "./vars.nft"
+include "./base.nft"
+include "./in_checks.nft"
+include "./icmp_in.nft"
+include "./out_checks.nft"
+include "./http_out.nft"
+include "./dns_out.nft"

@@ -1,0 +1,73 @@
+table ip filter {
+	chain icmp_log {
+		limit rate 100/minute burst 150 packets \
+			log flags all prefix "$log_prefix ICMP: " \
+			accept
+	}
+	chain icmp_drop_log {
+		limit rate 100/minute burst 150 packets \
+			log flags all prefix "$log_prefix ICMP drop: " \
+			drop
+	}
+	chain icmp_rate_limit_log {
+		limit rate 100/minute burst 150 packets \
+			log flags all prefix "$log_prefix ICMP rate limited drop: " \
+			drop
+	}
+	# May add to output: icmpv6 type { nd-neighbor-advert, nd-neighbor-solicit, nd-router-advert} ip6 hoplimit 255 counter accept
+	chain icmp_in {
+		# Figure out how to do ip6 hoplimit 1 here
+		# Necessary IPv6 network behavior
+		meta l4proto ipv6-icmp icmpv6 type { \
+			nd-neighbor-advert, \
+			nd-neighbor-solicit, \
+			nd-router-advert \
+		} accept
+
+		# ICMP rate limit
+		meta l4proto ipv6-icmp icmpv6 type { \
+			destination-unreachable, \
+			packet-too-big, \
+			time-exceeded, \
+			parameter-problem, \
+			echo-request, \
+			echo-reply
+		} limit rate 1/second jump icmp_rate_limit_log
+		ip protocol icmp icmp type { \
+			destination-unreachable, \
+			router-advertisement, \
+			time-exceeded, \
+			parameter-problem, \
+      echo-request \
+		} limit rate 1/second jump icmp_rate_limit_log
+
+		# ICMP to drop
+		ip protocol icmp icmp type { \
+			11 \
+		} jump icmp_drop_log
+		
+		# ICMP established/related connections
+		ct state {established, related} accept
+
+		# ICMP
+		meta l4proto ipv6-icmp icmpv6 type { \
+			destination-unreachable, \
+			packet-too-big, \
+			time-exceeded, \
+			parameter-problem, \
+			echo-request, \
+			echo-reply
+		} jump icmp_log
+		ip protocol icmp icmp type { \
+			destination-unreachable, \
+			router-advertisement, \
+			time-exceeded, \
+			parameter-problem, \
+      echo-request \
+		} jump icmp_log
+	}
+	chain INPUT {
+		type filter hook input priority filter; policy $filter_in_policy;
+		meta l4proto {icmp, ipv6-icmp} jump icmp_in
+	}
+}

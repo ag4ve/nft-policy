@@ -1,0 +1,15 @@
+define nft_trace = "1"
+
+define filter_out_policy = "accept"
+define filter_in_policy = "accept"
+
+define out_if = "wip3s0"
+
+define log_prefix = "NFT"
+
+define dns_servers = {
+	192.168.4.1,
+	127.0.0.53,
+	8.8.8.8,
+	8.8.4.4
+}

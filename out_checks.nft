@@ -1,0 +1,38 @@
+table ip filter {
+	chain bad_out_log {
+		limit rate 100/minute burst 150 packets \
+			log flags all prefix "$log_prefix OUT accept bad packet: " \
+      accept
+	}
+	chain out_log {
+		limit rate 100/minute burst 150 packets \
+			log flags all prefix "$log_prefix OUT interest: " \
+			accept
+	}
+	chain OUTPUT {
+		type filter hook output priority filter; policy $filter_out_policy;
+		meta nftrace set $nft_trace
+
+		oif lo \
+			accept \
+			comment "Permit all traffic out to loopback interface"
+
+		ct state established,related \
+			counter accept \
+			comment "Permit established/related connections"
+		ct state invalid \
+			counter jump bad_out_log \
+			comment "Drop traffic with invalid connection state"
+		ip protocol icmp \
+			counter accept \
+			comment "Permit all IPv4 ICMP types"
+		meta l4proto { icmpv6 } \
+			counter accept \
+			comment "Permit all IPv6 ICMP types"
+		udp dport 33434-33524 \
+			limit rate 500/second \
+			counter jump out_log \
+			comment "Permit outbound UDP traceroute limited to 500 PPS"
+	}
+}
+

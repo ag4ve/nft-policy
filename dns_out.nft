@@ -1,0 +1,13 @@
+table ip filter {
+	chain out_dns_drop {
+		limit rate 100/minute burst 150 packets \
+			log flags all prefix "$log_prefix Bad DNS server: " \
+			drop
+	}
+	chain OUTPUT {
+		type filter hook output priority filter; policy $filter_out_policy;
+		iifname $out_if meta l4proto {tcp,udp} th dport 53 ip daddr $dns_servers counter packets 0 bytes 0 accept
+		meta l4proto {tcp,udp} th dport 53 jump out_dns_drop
+	}
+}
+
